@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Signup</title>
+</head>
+<body>
+  <h2>Create an Account</h2>
+  <form id="signupForm">
+    <input type="text" id="name" placeholder="Name" required /><br />
+    <input type="email" id="email" placeholder="Email" required /><br />
+    <input type="password" id="password" placeholder="Password" required /><br />
+    <input type="text" id="referralCode" placeholder="Referral Code (optional)" /><br />
+    <input type="text" id="activationCode" placeholder="Activation Code" required /><br />
+    <button type="submit">Sign Up</button>
+  </form>
+
+  <p id="message"></p>
+
+  <script>
+    document.getElementById('signupForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const referralCode = document.getElementById('referralCode').value;
+      const activationCode = document.getElementById('activationCode').value;
+
+      const res = await fetch('/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, referralCode, activationCode })
+      });
+
+      const data = await res.json();
+      document.getElementById('message').innerText = data.message;
+
+      if (res.ok) {
+        // Optional: redirect to login
+      }
+    });
+  </script>
+</body>
+</html>
