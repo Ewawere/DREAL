@@ -1,0 +1,13 @@
+{
+  "name": "referral-app",
+  "version": "1.0.0",
+  "description": "Referral website with activation codes and wallet system",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "bcrypt": "^5.1.0"
+  }
+}
