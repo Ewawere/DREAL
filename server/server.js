@@ -8,21 +8,24 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Paths to JSON files
 const USERS_FILE = path.join(__dirname, 'users.json');
 const CODES_FILE = path.join(__dirname, 'activation_codes.json');
 
-// Utility to read JSON files
+// Read JSON file (safely)
 function readJson(file) {
   if (!fs.existsSync(file)) fs.writeFileSync(file, '[]');
   return JSON.parse(fs.readFileSync(file));
 }
 
-// Utility to write JSON files
+// Write JSON file
 function writeJson(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-// POST /signup
+// ===================================
+// ✅ SIGNUP ROUTE
+// ===================================
 app.post('/signup', async (req, res) => {
   const { name, email, password, referralCode, activationCode } = req.body;
 
@@ -33,18 +36,22 @@ app.post('/signup', async (req, res) => {
   const users = readJson(USERS_FILE);
   const codes = readJson(CODES_FILE);
 
+  // Check if user already exists
   if (users.find(u => u.email === email)) {
     return res.status(400).json({ message: 'Email already registered.' });
   }
 
+  // Validate activation code
   const codeEntry = codes.find(c => c.code === activationCode && !c.used);
   if (!codeEntry) {
-    return res.status(400).json({ message: 'Invalid or used activation code.' });
+    return res.status(400).json({ message: 'Invalid or already used activation code.' });
   }
 
+  // Mark code as used
   codeEntry.used = true;
   writeJson(CODES_FILE, codes);
 
+  // Handle referral
   if (referralCode) {
     const refUser = users.find(u => u.myReferralCode === referralCode);
     if (refUser) {
@@ -52,13 +59,14 @@ app.post('/signup', async (req, res) => {
     }
   }
 
+  // Create new user
   const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = {
     name,
     email,
     password: hashedPassword,
     wallet: 0,
-    myReferralCode: 'RFER' + Math.floor(Math.random() * 1000000),
+    myReferralCode: 'RFER' + Math.floor(100000 + Math.random() * 900000),
     createdAt: new Date().toISOString()
   };
 
@@ -68,7 +76,9 @@ app.post('/signup', async (req, res) => {
   res.json({ message: 'Signup successful! You can now log in.' });
 });
 
-// ✅ POST /login
+// ===================================
+// ✅ LOGIN ROUTE
+// ===================================
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -84,10 +94,19 @@ app.post('/login', async (req, res) => {
     return res.status(401).json({ message: 'Incorrect password' });
   }
 
-  // Success
-  res.json({ message: `Welcome back, ${user.name}!` });
+  // Send safe user info for dashboard
+  res.json({
+    message: `Welcome back, ${user.name}!`,
+    user: {
+      name: user.name,
+      wallet: user.wallet,
+      myReferralCode: user.myReferralCode
+    }
+  });
 });
 
-// Start server
+// ===================================
+// ✅ START SERVER
+// ===================================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
