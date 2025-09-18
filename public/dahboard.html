@@ -4,15 +4,62 @@
 <head>
   <meta charset="UTF-8">
   <title>User Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      background-color: #f9f9f9;
+    }
+
+    #dashboardContent {
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      margin: auto;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    input[type="text"] {
+      padding: 6px;
+      margin-top: 4px;
+    }
+
+    button {
+      padding: 6px 12px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    #message {
+      color: green;
+      margin-top: 10px;
+    }
+
+    #notLoggedIn {
+      text-align: center;
+      color: red;
+    }
+
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+  </style>
 </head>
 <body>
   <h2>Welcome to Your Dashboard</h2>
 
   <div id="dashboardContent">
     <p><strong>Wallet Balance:</strong> ₦<span id="wallet">0</span></p>
-    <p><strong>Your Referral Code:</strong> <span id="referralCode"></span></p>
-    <p><strong>Your Referral Link:</strong>
-      <input type="text" id="referralLink" readonly style="width: 300px;" />
+    <p><strong>Your Referral Code:</strong> <span id="referralCode">N/A</span></p>
+    <p><strong>Your Referral Link:</strong><br />
+      <input type="text" id="referralLink" readonly style="width: 100%;" />
+      <br />
       <button onclick="copyLink()">Copy</button>
     </p>
 
@@ -31,16 +78,20 @@
       document.getElementById("dashboardContent").style.display = "none";
       document.getElementById("notLoggedIn").style.display = "block";
     } else {
-      document.getElementById('wallet').innerText = user.wallet;
-      document.getElementById('referralCode').innerText = user.myReferralCode;
-      document.getElementById('referralLink').value = `https://dreal-opjt.onrender.com/signup.html?ref=${user.myReferralCode}`;
+      document.getElementById('wallet').innerText = user.wallet || 0;
+      document.getElementById('referralCode').innerText = user.myReferralCode || 'N/A';
+      document.getElementById('referralLink').value = `https://dreal-opjt.onrender.com/signup.html?ref=${user.myReferralCode || ''}`;
     }
 
     function copyLink() {
       const input = document.getElementById("referralLink");
-      input.select();
-      document.execCommand("copy");
-      document.getElementById("message").innerText = "Referral link copied!";
+      navigator.clipboard.writeText(input.value)
+        .then(() => {
+          document.getElementById("message").innerText = "Referral link copied!";
+        })
+        .catch(() => {
+          document.getElementById("message").innerText = "Failed to copy link.";
+        });
     }
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
