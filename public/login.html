@@ -1,39 +1,105 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Login</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background-color: #f4f4f4;
+      text-align: center;
+    }
+
+    form {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 450px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #message {
+      margin-top: 15px;
+      color: red;
+    }
+
+    .links {
+      margin-top: 20px;
+    }
+
+    a {
+      text-decoration: none;
+      color: #007bff;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-  <h2>Login</h2>
+  <h2>Login to Your Account</h2>
+
   <form id="loginForm">
-    <input type="email" id="email" placeholder="Email" required><br>
-    <input type="password" id="password" placeholder="Password" required><br>
+    <input type="email" id="email" placeholder="Email" required /><br />
+    <input type="password" id="password" placeholder="Password" required /><br />
     <button type="submit">Login</button>
   </form>
-  <p id="msg" style="color:red;"></p>
+
+  <p id="message"></p>
+
+  <div class="links">
+    <p>Don't have an account? <a href="/signup.html">Sign Up</a></p>
+    <p><a href="/index.html">← Back to homepage</a></p>
+  </div>
 
   <script>
-    document.getElementById('loginForm').addEventListener('submit', e => {
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
 
-      fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      })
-      .then(res => {
-        if(res.ok) {
-          window.location.href = '/dashboard.html';
-        } else {
-          return res.json().then(data => { throw data; });
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        document.getElementById('message').innerText = data.message;
+
+        if (res.ok) {
+          // Redirect to dashboard after successful login
+          setTimeout(() => {
+            window.location.href = "/dashboard.html";
+          }, 1000);
         }
-      })
-      .catch(err => {
-        document.getElementById('msg').innerText = err.error || 'Login failed';
-      });
+      } catch (err) {
+        document.getElementById('message').innerText = "Server error. Please try again.";
+      }
     });
   </script>
 </body>
