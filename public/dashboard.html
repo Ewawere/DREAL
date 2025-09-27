@@ -54,7 +54,7 @@
 <body>
   <h2>Welcome to Your Dashboard</h2>
 
-  <div id="dashboardContent">
+  <div id="dashboardContent" style="display: none;">
     <p><strong>Wallet Balance:</strong> ₦<span id="wallet">0</span></p>
     <p><strong>Your Referral Code:</strong> <span id="referralCode">N/A</span></p>
     <p><strong>Your Referral Link:</strong><br />
@@ -72,16 +72,27 @@
   </div>
 
   <script>
-    const user = JSON.parse(localStorage.getItem('loggedInUser'));
-
-    if (!user) {
-      document.getElementById("dashboardContent").style.display = "none";
-      document.getElementById("notLoggedIn").style.display = "block";
-    } else {
-      document.getElementById('wallet').innerText = user.wallet || 0;
-      document.getElementById('referralCode').innerText = user.myReferralCode || 'N/A';
-      document.getElementById('referralLink').value = `https://dreal-opjt.onrender.com/signup.html?ref=${user.myReferralCode || ''}`;
-    }
+    fetch('/dashboard')
+      .then(res => {
+        if (res.status === 401) {
+          // Not logged in on the server
+          document.getElementById("notLoggedIn").style.display = "block";
+        } else {
+          return res.json();
+        }
+      })
+      .then(data => {
+        if (data && data.user) {
+          const { wallet, myReferralCode } = data.user;
+          document.getElementById('wallet').innerText = wallet || 0;
+          document.getElementById('referralCode').innerText = myReferralCode || 'N/A';
+          document.getElementById('referralLink').value = `https://dreal-opjt.onrender.com/signup.html?ref=${myReferralCode || ''}`;
+          document.getElementById('dashboardContent').style.display = "block";
+        }
+      })
+      .catch(() => {
+        document.getElementById("notLoggedIn").style.display = "block";
+      });
 
     function copyLink() {
       const input = document.getElementById("referralLink");
@@ -95,8 +106,11 @@
     }
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
-      localStorage.removeItem('loggedInUser');
-      window.location.href = '/login.html';
+      fetch('/logout')
+        .then(() => {
+          localStorage.removeItem('loggedInUser'); // optional cleanup
+          window.location.href = '/login.html';
+        });
     });
   </script>
 </body>
