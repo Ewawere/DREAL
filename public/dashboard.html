@@ -8,7 +8,7 @@
     body { font-family: Arial, sans-serif; padding: 30px; background-color: #f9f9f9; }
     #dashboardContent { background-color: #fff; padding: 20px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
     h2 { text-align: center; }
-    input[type="text"] { padding: 6px; margin-top: 4px; }
+    input[type="text"] { padding: 6px; margin-top: 4px; width: 100%; }
     button { padding: 6px 12px; margin-top: 10px; cursor: pointer; }
     #message { color: green; margin-top: 10px; }
     #notLoggedIn { text-align: center; color: red; }
@@ -19,13 +19,16 @@
   <h2>Welcome to Your Dashboard</h2>
 
   <div id="dashboardContent" style="display: none;">
+    <p><strong>Name:</strong> <span id="userName"></span></p>
     <p><strong>Wallet Balance:</strong> ₦<span id="wallet">0</span></p>
     <p><strong>Your Referral Code:</strong> <span id="referralCode">N/A</span></p>
     <p><strong>Your Referral Link:</strong><br />
-      <input type="text" id="referralLink" readonly style="width: 100%;" />
+      <input type="text" id="referralLink" readonly />
       <br /><button onclick="copyLink()">Copy</button>
     </p>
     <p><strong>Referred By:</strong> <span id="referredBy">N/A</span></p>
+    <p><strong>Users You Referred:</strong> <span id="referralsCount">0</span></p>
+
     <button id="logoutBtn">Logout</button>
     <p id="message"></p>
   </div>
@@ -45,11 +48,15 @@
       })
       .then(data => {
         if (data && data.user) {
-          const { wallet, myReferralCode, referredBy } = data.user;
+          const { name, wallet, myReferralCode, referredBy, referralsCount } = data.user;
+
+          document.getElementById('userName').innerText = name;
           document.getElementById('wallet').innerText = wallet || 0;
           document.getElementById('referralCode').innerText = myReferralCode || 'N/A';
           document.getElementById('referralLink').value = `${window.location.origin}/signup.html?ref=${myReferralCode || ''}`;
-          document.getElementById('referredBy').innerText = referredBy || 'N/A';
+          document.getElementById('referredBy').innerText = referredBy;
+          document.getElementById('referralsCount').innerText = referralsCount;
+
           document.getElementById('dashboardContent').style.display = "block";
         }
       })
