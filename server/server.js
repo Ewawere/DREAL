@@ -20,10 +20,55 @@ app.use(session({
 
 // Temporary in-memory "database"
 const users = [
-  { email: 'user@example.com', password: '1234', wallet: 5000, myReferralCode: 'ABC123' }
+  { 
+    name: 'Admin User',
+    email: 'user@example.com', 
+    password: '1234', 
+    wallet: 5000, 
+    myReferralCode: 'ABC123',
+    referredBy: null,
+    activationCode: 'ACT123'
+  }
 ];
 
 // --- Routes ---
+
+// Signup
+app.post('/signup', (req, res) => {
+  const { name, email, password, activationCode, referralCode } = req.body;
+
+  if (!name || !email || !password || !activationCode) {
+    return res.status(400).json({ message: 'Please fill in all required fields.' });
+  }
+
+  // Validate activation code (for demo purposes, only one valid code)
+  const validActivationCode = 'ACT123';
+  if (activationCode !== validActivationCode) {
+    return res.status(400).json({ message: 'Invalid activation code.' });
+  }
+
+  if (users.find(u => u.email === email)) {
+    return res.status(400).json({ message: 'Email already exists.' });
+  }
+
+  // Generate referral code for the new user
+  const newReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  const newUser = {
+    name,
+    email,
+    password,
+    wallet: 0,
+    myReferralCode: newReferralCode,
+    referredBy: referralCode || null,
+    activationCode
+  };
+
+  users.push(newUser);
+  req.session.user = newUser;
+
+  res.json({ message: 'Signup successful! Redirecting to login...' });
+});
 
 // Login
 app.post('/login', (req, res) => {
@@ -37,11 +82,9 @@ app.post('/login', (req, res) => {
   }
 });
 
-// Dashboard data
+// Dashboard
 app.get('/dashboard', (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ error: 'Not logged in' });
-  }
+  if (!req.session.user) return res.status(401).json({ error: 'Not logged in' });
   res.json({ user: req.session.user });
 });
 
