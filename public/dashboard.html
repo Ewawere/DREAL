@@ -5,50 +5,14 @@
   <meta charset="UTF-8">
   <title>User Dashboard</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 30px;
-      background-color: #f9f9f9;
-    }
-
-    #dashboardContent {
-      background-color: #ffffff;
-      padding: 20px;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      max-width: 500px;
-      margin: auto;
-    }
-
-    h2 {
-      text-align: center;
-    }
-
-    input[type="text"] {
-      padding: 6px;
-      margin-top: 4px;
-    }
-
-    button {
-      padding: 6px 12px;
-      margin-top: 10px;
-      cursor: pointer;
-    }
-
-    #message {
-      color: green;
-      margin-top: 10px;
-    }
-
-    #notLoggedIn {
-      text-align: center;
-      color: red;
-    }
-
-    a {
-      color: #007bff;
-      text-decoration: none;
-    }
+    body { font-family: Arial, sans-serif; padding: 30px; background-color: #f9f9f9; }
+    #dashboardContent { background-color: #fff; padding: 20px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
+    h2 { text-align: center; }
+    input[type="text"] { padding: 6px; margin-top: 4px; }
+    button { padding: 6px 12px; margin-top: 10px; cursor: pointer; }
+    #message { color: green; margin-top: 10px; }
+    #notLoggedIn { text-align: center; color: red; }
+    a { color: #007bff; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -59,10 +23,9 @@
     <p><strong>Your Referral Code:</strong> <span id="referralCode">N/A</span></p>
     <p><strong>Your Referral Link:</strong><br />
       <input type="text" id="referralLink" readonly style="width: 100%;" />
-      <br />
-      <button onclick="copyLink()">Copy</button>
+      <br /><button onclick="copyLink()">Copy</button>
     </p>
-
+    <p><strong>Referred By:</strong> <span id="referredBy">N/A</span></p>
     <button id="logoutBtn">Logout</button>
     <p id="message"></p>
   </div>
@@ -75,7 +38,6 @@
     fetch('/dashboard')
       .then(res => {
         if (res.status === 401) {
-          // Not logged in on the server
           document.getElementById("notLoggedIn").style.display = "block";
         } else {
           return res.json();
@@ -83,10 +45,11 @@
       })
       .then(data => {
         if (data && data.user) {
-          const { wallet, myReferralCode } = data.user;
+          const { wallet, myReferralCode, referredBy } = data.user;
           document.getElementById('wallet').innerText = wallet || 0;
           document.getElementById('referralCode').innerText = myReferralCode || 'N/A';
-          document.getElementById('referralLink').value = `https://dreal-opjt.onrender.com/signup.html?ref=${myReferralCode || ''}`;
+          document.getElementById('referralLink').value = `${window.location.origin}/signup.html?ref=${myReferralCode || ''}`;
+          document.getElementById('referredBy').innerText = referredBy || 'N/A';
           document.getElementById('dashboardContent').style.display = "block";
         }
       })
@@ -97,20 +60,14 @@
     function copyLink() {
       const input = document.getElementById("referralLink");
       navigator.clipboard.writeText(input.value)
-        .then(() => {
-          document.getElementById("message").innerText = "Referral link copied!";
-        })
-        .catch(() => {
-          document.getElementById("message").innerText = "Failed to copy link.";
-        });
+        .then(() => { document.getElementById("message").innerText = "Referral link copied!"; })
+        .catch(() => { document.getElementById("message").innerText = "Failed to copy link."; });
     }
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
-      fetch('/logout')
-        .then(() => {
-          localStorage.removeItem('loggedInUser'); // optional cleanup
-          window.location.href = '/login.html';
-        });
+      fetch('/logout').then(() => {
+        window.location.href = '/login.html';
+      });
     });
   </script>
 </body>
