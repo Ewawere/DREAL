@@ -41,7 +41,7 @@ app.post('/signup', (req, res) => {
     return res.status(400).json({ message: 'Please fill in all required fields.' });
   }
 
-  // Validate activation code (for demo purposes, only one valid code)
+  // Validate activation code
   const validActivationCode = 'ACT123';
   if (activationCode !== validActivationCode) {
     return res.status(400).json({ message: 'Invalid activation code.' });
@@ -65,8 +65,20 @@ app.post('/signup', (req, res) => {
   };
 
   users.push(newUser);
-  req.session.user = newUser;
 
+  // **Referral reward**: Only give reward if the user hasn't been referred before
+  if (referralCode) {
+    const referrer = users.find(u => u.myReferralCode === referralCode);
+    if (referrer) {
+      // Check if this new user already counted for this referral
+      const alreadyCounted = users.some(u => u.email === email && u.referredBy === referralCode);
+      if (!alreadyCounted) {
+        referrer.wallet += 2000; // reward ₦2000 per unique referral
+      }
+    }
+  }
+
+  req.session.user = newUser;
   res.json({ message: 'Signup successful! Redirecting to login...' });
 });
 
@@ -85,7 +97,22 @@ app.post('/login', (req, res) => {
 // Dashboard
 app.get('/dashboard', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Not logged in' });
-  res.json({ user: req.session.user });
+
+  const user = req.session.user;
+
+  // Count how many users were referred by this user
+  const referralsCount = users.filter(u => u.referredBy === user.myReferralCode).length;
+
+  res.json({
+    user: {
+      name: user.name,
+      email: user.email,
+      wallet: user.wallet,
+      myReferralCode: user.myReferralCode,
+      referredBy: user.referredBy || 'N/A',
+      referralsCount
+    }
+  });
 });
 
 // Logout
