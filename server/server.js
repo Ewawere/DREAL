@@ -1,159 +1,57 @@
 
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
-const bcrypt = require('bcrypt');
 const session = require('express-session');
+const bodyParser = require('body-parser');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// ================================
 // Middleware
-// ================================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve static files from 'public'
-app.use(express.static(path.join(__dirname, '../public')));
-
-// Session setup
 app.use(session({
-  secret: 'superSecretKey', // change this in production
+  secret: 'superSecretKey',
   resave: false,
   saveUninitialized: true,
-  cookie: { maxAge: 1000 * 60 * 60 } // 1 hour
 }));
 
-// ================================
-// File paths
-// ================================
-const USERS_FILE = path.join(__dirname, 'users.json');
-const CODES_FILE = path.join(__dirname, 'activation_codes.json');
+// Temporary in-memory "database"
+const users = [
+  { email: 'user@example.com', password: '1234', wallet: 5000, myReferralCode: 'ABC123' }
+];
 
-// ================================
-// Helper functions
-// ================================
-function readJson(file) {
-  if (!fs.existsSync(file)) fs.writeFileSync(file, '[]');
-  return JSON.parse(fs.readFileSync(file));
-}
+// --- Routes ---
 
-function writeJson(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
-// ================================
-// Middleware for protected routes
-// ================================
-function isLoggedIn(req, res, next) {
-  if (req.session.user) return next();
-  res.redirect('/login.html'); // redirect if not logged in
-}
-
-// ================================
-// Signup
-// ================================
-app.post('/signup', async (req, res) => {
-  const { name, email, password, referralCode, activationCode } = req.body;
-
-  if (!name || !email || !password || !activationCode) {
-    return res.status(400).json({ message: 'All fields except referral are required.' });
-  }
-
-  const users = readJson(USERS_FILE);
-  const codes = readJson(CODES_FILE);
-
-  if (users.find(u => u.email === email)) {
-    return res.status(400).json({ message: 'Email already registered.' });
-  }
-
-  const codeEntry = codes.find(c => c.code === activationCode && !c.used);
-  if (!codeEntry) {
-    return res.status(400).json({ message: 'Invalid or already used activation code.' });
-  }
-
-  // Mark activation code as used
-  codeEntry.used = true;
-  writeJson(CODES_FILE, codes);
-
-  // Handle referral bonus
-  if (referralCode) {
-    const refUser = users.find(u => u.myReferralCode === referralCode);
-    if (refUser) {
-      refUser.wallet += 2000;
-    }
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = {
-    name,
-    email,
-    password: hashedPassword,
-    wallet: 0,
-    myReferralCode: 'RFER' + Math.floor(100000 + Math.random() * 900000),
-    createdAt: new Date().toISOString()
-  };
-
-  users.push(newUser);
-  writeJson(USERS_FILE, users);
-
-  res.json({ message: 'Signup successful! You can now log in.' });
-});
-
-// ================================
 // Login
-// ================================
-app.post('/login', async (req, res) => {
+app.post('/login', (req, res) => {
   const { email, password } = req.body;
-  const users = readJson(USERS_FILE);
-  const user = users.find(u => u.email === email);
-
-  if (!user) return res.status(401).json({ message: 'User not found' });
-
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
-
-  // Save session
-  req.session.user = {
-    name: user.name,
-    wallet: user.wallet,
-    myReferralCode: user.myReferralCode,
-    email: user.email
-  };
-
-  res.json({
-    message: `Welcome back, ${user.name}!`,
-    user: req.session.user
-  });
+  const user = users.find(u => u.email === email && u.password === password);
+  if (user) {
+    req.session.user = user;
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ error: 'Invalid email or password' });
+  }
 });
 
-// ================================
-// Dashboard (Protected)
-// ================================
-app.get('/dashboard', isLoggedIn, (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/dashboard.html'));
+// Dashboard data
+app.get('/dashboard', (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+  res.json({ user: req.session.user });
 });
 
-// ================================
 // Logout
-// ================================
 app.get('/logout', (req, res) => {
-  req.session.destroy(err => {
-    if (err) return res.status(500).json({ message: 'Logout error' });
-    res.redirect('/login.html');
-  });
+  req.session.destroy();
+  res.sendStatus(200);
 });
 
-// ================================
-// Catch-all for errors
-// ================================
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Server Error');
-});
-
-// ================================
 // Start server
-// ================================
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
