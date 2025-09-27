@@ -4,13 +4,19 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
+
 const app = express();
 
+// ================================
 // Middleware
+// ================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from 'public'
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Session setup
 app.use(session({
   secret: 'superSecretKey', // change this in production
   resave: false,
@@ -18,11 +24,15 @@ app.use(session({
   cookie: { maxAge: 1000 * 60 * 60 } // 1 hour
 }));
 
+// ================================
 // File paths
+// ================================
 const USERS_FILE = path.join(__dirname, 'users.json');
 const CODES_FILE = path.join(__dirname, 'activation_codes.json');
 
+// ================================
 // Helper functions
+// ================================
 function readJson(file) {
   if (!fs.existsSync(file)) fs.writeFileSync(file, '[]');
   return JSON.parse(fs.readFileSync(file));
@@ -33,7 +43,15 @@ function writeJson(file, data) {
 }
 
 // ================================
-// ✅ SIGNUP
+// Middleware for protected routes
+// ================================
+function isLoggedIn(req, res, next) {
+  if (req.session.user) return next();
+  res.redirect('/login.html'); // redirect if not logged in
+}
+
+// ================================
+// Signup
 // ================================
 app.post('/signup', async (req, res) => {
   const { name, email, password, referralCode, activationCode } = req.body;
@@ -83,23 +101,19 @@ app.post('/signup', async (req, res) => {
 });
 
 // ================================
-// ✅ LOGIN
+// Login
 // ================================
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   const users = readJson(USERS_FILE);
   const user = users.find(u => u.email === email);
 
-  if (!user) {
-    return res.status(401).json({ message: 'User not found' });
-  }
+  if (!user) return res.status(401).json({ message: 'User not found' });
 
   const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return res.status(401).json({ message: 'Incorrect password' });
-  }
+  if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
 
-  // ✅ Save session
+  // Save session
   req.session.user = {
     name: user.name,
     wallet: user.wallet,
@@ -114,31 +128,32 @@ app.post('/login', async (req, res) => {
 });
 
 // ================================
-// ✅ DASHBOARD (Protected Route)
+// Dashboard (Protected)
 // ================================
-app.get('/dashboard', (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ message: 'Unauthorized: Please log in' });
-  }
-
-  res.json({
-    message: 'Dashboard loaded',
-    user: req.session.user
-  });
+app.get('/dashboard', isLoggedIn, (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/dashboard.html'));
 });
 
 // ================================
-// ✅ LOGOUT
+// Logout
 // ================================
 app.get('/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) return res.status(500).json({ message: 'Logout error' });
-    res.json({ message: 'Logged out successfully' });
+    res.redirect('/login.html');
   });
 });
 
 // ================================
-// ✅ START SERVER
+// Catch-all for errors
 // ================================
-const PORT = process.env.PORT || 3000;
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Server Error');
+});
+
+// ================================
+// Start server
+// ================================
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
