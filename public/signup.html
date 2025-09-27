@@ -1,8 +1,63 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Sign Up</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background-color: #f4f4f4;
+      text-align: center;
+    }
+
+    form {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 450px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #28a745;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #218838;
+    }
+
+    #message {
+      margin-top: 15px;
+      color: red;
+    }
+
+    .links {
+      margin-top: 20px;
+    }
+
+    a {
+      text-decoration: none;
+      color: #007bff;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
   <h2>Create Your Account</h2>
@@ -18,7 +73,19 @@
 
   <p id="message"></p>
 
+  <div class="links">
+    <p>Already have an account? <a href="/login.html">Login</a></p>
+    <p><a href="/index.html">← Back to homepage</a></p>
+  </div>
+
   <script>
+    // Autofill referral code from ?ref= query in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    if (ref) {
+      document.getElementById('referralCode').value = ref;
+    }
+
     document.getElementById('signupForm').addEventListener('submit', async function (e) {
       e.preventDefault();
 
@@ -28,21 +95,26 @@
       const activationCode = document.getElementById('activationCode').value;
       const referralCode = document.getElementById('referralCode').value;
 
-      const res = await fetch('/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, activationCode, referralCode })
-      });
+      try {
+        const res = await fetch('/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, activationCode, referralCode })
+        });
 
-      const data = await res.json();
-      document.getElementById('message').innerText = data.message;
+        const data = await res.json();
+        document.getElementById('message').innerText = data.message;
 
-      if (res.ok) {
-        // Optional: Redirect to login
-        // window.location.href = "/login.html";
+        if (res.ok) {
+          // Redirect to login page on successful signup
+          setTimeout(() => {
+            window.location.href = "/login.html";
+          }, 2000);
+        }
+      } catch (err) {
+        document.getElementById('message').innerText = "Server error. Please try again.";
       }
     });
   </script>
 </body>
 </html>
-
