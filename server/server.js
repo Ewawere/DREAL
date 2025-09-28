@@ -18,7 +18,7 @@ app.use(session({
   saveUninitialized: true,
 }));
 
-// Temporary in-memory "database"
+// --- In-memory database ---
 const users = [
   { 
     name: 'Admin User',
@@ -33,6 +33,11 @@ const users = [
 
 // --- Routes ---
 
+// Serve homepage
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Signup
 app.post('/signup', (req, res) => {
   const { name, email, password, activationCode, referralCode } = req.body;
@@ -41,9 +46,7 @@ app.post('/signup', (req, res) => {
     return res.status(400).json({ message: 'Please fill in all required fields.' });
   }
 
-  // Validate activation code
-  const validActivationCode = 'ACT123';
-  if (activationCode !== validActivationCode) {
+  if (activationCode !== 'ACT123') {
     return res.status(400).json({ message: 'Invalid activation code.' });
   }
 
@@ -51,7 +54,6 @@ app.post('/signup', (req, res) => {
     return res.status(400).json({ message: 'Email already exists.' });
   }
 
-  // Generate referral code for the new user
   const newReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const newUser = {
@@ -66,11 +68,10 @@ app.post('/signup', (req, res) => {
 
   users.push(newUser);
 
-  // **Referral reward**: Only give reward if the user hasn't been referred before
+  // Referral reward
   if (referralCode) {
     const referrer = users.find(u => u.myReferralCode === referralCode);
     if (referrer) {
-      // Check if this new user already counted for this referral
       const alreadyCounted = users.some(u => u.email === email && u.referredBy === referralCode);
       if (!alreadyCounted) {
         referrer.wallet += 2000; // reward ₦2000 per unique referral
@@ -88,19 +89,17 @@ app.post('/login', (req, res) => {
   const user = users.find(u => u.email === email && u.password === password);
   if (user) {
     req.session.user = user;
-    res.json({ success: true });
+    res.json({ message: 'Login successful!' });
   } else {
-    res.status(401).json({ error: 'Invalid email or password' });
+    res.status(401).json({ message: 'Invalid email or password' });
   }
 });
 
 // Dashboard
 app.get('/dashboard', (req, res) => {
-  if (!req.session.user) return res.status(401).json({ error: 'Not logged in' });
+  if (!req.session.user) return res.status(401).json({ message: 'Not logged in' });
 
   const user = req.session.user;
-
-  // Count how many users were referred by this user
   const referralsCount = users.filter(u => u.referredBy === user.myReferralCode).length;
 
   res.json({
@@ -119,6 +118,11 @@ app.get('/dashboard', (req, res) => {
 app.get('/logout', (req, res) => {
   req.session.destroy();
   res.sendStatus(200);
+});
+
+// Catch-all to handle unknown paths
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start server
