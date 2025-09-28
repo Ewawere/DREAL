@@ -10,7 +10,9 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve static files from the public folder
+app.use(express.static(path.join(__dirname, '..', 'public'))));
 
 app.use(session({
   secret: 'superSecretKey',
@@ -18,7 +20,7 @@ app.use(session({
   saveUninitialized: true,
 }));
 
-// --- In-memory database ---
+// --- In-memory "database" ---
 const users = [
   { 
     name: 'Admin User',
@@ -33,9 +35,24 @@ const users = [
 
 // --- Routes ---
 
-// Serve homepage
+// Homepage
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
+// Signup page (optional if not handled by frontend)
+app.get('/signup.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'signup.html'));
+});
+
+// Login page
+app.get('/login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
+});
+
+// Dashboard page
+app.get('/dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
 });
 
 // Signup
@@ -73,9 +90,7 @@ app.post('/signup', (req, res) => {
     const referrer = users.find(u => u.myReferralCode === referralCode);
     if (referrer) {
       const alreadyCounted = users.some(u => u.email === email && u.referredBy === referralCode);
-      if (!alreadyCounted) {
-        referrer.wallet += 2000; // reward ₦2000 per unique referral
-      }
+      if (!alreadyCounted) referrer.wallet += 2000;
     }
   }
 
@@ -95,7 +110,7 @@ app.post('/login', (req, res) => {
   }
 });
 
-// Dashboard
+// Dashboard API
 app.get('/dashboard', (req, res) => {
   if (!req.session.user) return res.status(401).json({ message: 'Not logged in' });
 
@@ -120,9 +135,9 @@ app.get('/logout', (req, res) => {
   res.sendStatus(200);
 });
 
-// Catch-all to handle unknown paths
+// Catch-all: serve index.html for unknown paths
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 // Start server
