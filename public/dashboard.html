@@ -37,48 +37,42 @@
   </div>
 
   <script>
-  // Fetch dashboard data
-  fetch('/dashboard')
-    .then(res => res.json().then(data => ({ status: res.status, data })))
-    .then(result => {
-      if (result.status === 401) {
-        // User not logged in
-        document.getElementById("notLoggedIn").style.display = "block";
-        document.getElementById("dashboardContent").style.display = "none";
-      } else if (result.status === 200) {
-        // Populate dashboard
-        const { name, wallet, myReferralCode, referredBy, referralsCount } = result.data.user;
+document.addEventListener("DOMContentLoaded", async () => {
+  const dashboard = document.getElementById("dashboardContent");
+  const notLoggedIn = document.getElementById("notLoggedIn");
 
-        document.getElementById('userName').innerText = name;
-        document.getElementById('wallet').innerText = wallet || 0;
-        document.getElementById('referralCode').innerText = myReferralCode || 'N/A';
-        document.getElementById('referralLink').value = `${window.location.origin}/signup.html?ref=${myReferralCode || ''}`;
-        document.getElementById('referredBy').innerText = referredBy;
-        document.getElementById('referralsCount').innerText = referralsCount;
+  try {
+    const res = await fetch("/user-data");
+    if (!res.ok) throw new Error("Unauthorized");
 
-        document.getElementById('dashboardContent').style.display = "block";
-        document.getElementById("notLoggedIn").style.display = "none";
-      }
-    })
-    .catch(() => {
-      document.getElementById("notLoggedIn").style.display = "block";
-      document.getElementById("dashboardContent").style.display = "none";
-    });
+    const user = await res.json();
+    dashboard.style.display = "block";
+    notLoggedIn.style.display = "none";
 
-  // Copy referral link
-  function copyLink() {
-    const input = document.getElementById("referralLink");
-    navigator.clipboard.writeText(input.value)
-      .then(() => { document.getElementById("message").innerText = "Referral link copied!"; })
-      .catch(() => { document.getElementById("message").innerText = "Failed to copy link."; });
+    document.getElementById("userName").innerText = user.name;
+    document.getElementById("wallet").innerText = user.wallet?.toLocaleString() || "0";
+    document.getElementById("referralCode").innerText = user.referralCode || "N/A";
+    document.getElementById("referredBy").innerText = user.referredBy || "N/A";
+    document.getElementById("referralsCount").innerText = user.referredUsers?.length || 0;
+    document.getElementById("referralLink").value = `${window.location.origin}/signup.html?ref=${user.referralCode}`;
+
+  } catch {
+    notLoggedIn.style.display = "block";
+    dashboard.style.display = "none";
   }
 
-  // Logout
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    fetch('/logout').then(() => {
-      window.location.href = '/login.html';
-    });
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    await fetch("/logout");
+    window.location.href = "/login.html";
   });
+});
+
+function copyLink() {
+  const input = document.getElementById("referralLink");
+  navigator.clipboard.writeText(input.value)
+    .then(() => document.getElementById("message").innerText = "Referral link copied!")
+    .catch(() => document.getElementById("message").innerText = "Failed to copy link.");
+}
 </script>
 </body>
 </html>
