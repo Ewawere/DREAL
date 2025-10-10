@@ -1,4 +1,3 @@
-
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
@@ -10,9 +9,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-
-// Serve static files from the public folder
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
   secret: 'superSecretKey',
@@ -20,42 +17,30 @@ app.use(session({
   saveUninitialized: true,
 }));
 
-// --- In-memory "database" ---
+// --- In-memory data ---
 const users = [
-  { 
+  {
     name: 'Admin User',
-    email: 'user@example.com', 
-    password: '1234', 
-    wallet: 5000, 
+    email: 'user@example.com',
+    password: '1234',
+    wallet: 5000,
     myReferralCode: 'ABC123',
     referredBy: null,
     activationCode: 'ACT123'
   }
 ];
 
+// Activation codes that can be used only once
+let activationCodes = ['ACT123', 'ACT234', 'ACT345', 'ACT456', 'ACT567'];
+
 // --- Routes ---
 
-// Homepage
+// Serve homepage
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Signup page (optional if not handled by frontend)
-app.get('/signup.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'signup.html'));
-});
-
-// Login page
-app.get('/login.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
-});
-
-// Dashboard page
-app.get('/dashboard.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
-});
-
-// Signup
+// Signup route
 app.post('/signup', (req, res) => {
   const { name, email, password, activationCode, referralCode } = req.body;
 
@@ -63,14 +48,16 @@ app.post('/signup', (req, res) => {
     return res.status(400).json({ message: 'Please fill in all required fields.' });
   }
 
-  if (activationCode !== 'ACT123') {
-    return res.status(400).json({ message: 'Invalid activation code.' });
+  // Check activation code validity
+  if (!activationCodes.includes(activationCode)) {
+    return res.status(400).json({ message: 'Invalid or already used activation code.' });
   }
 
   if (users.find(u => u.email === email)) {
     return res.status(400).json({ message: 'Email already exists.' });
   }
 
+  // Generate new referral code
   const newReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const newUser = {
@@ -85,20 +72,22 @@ app.post('/signup', (req, res) => {
 
   users.push(newUser);
 
-  // Referral reward
+  // Referral reward logic
   if (referralCode) {
     const referrer = users.find(u => u.myReferralCode === referralCode);
     if (referrer) {
-      const alreadyCounted = users.some(u => u.email === email && u.referredBy === referralCode);
-      if (!alreadyCounted) referrer.wallet += 2000;
+      referrer.wallet += 2000; // ₦2000 reward
     }
   }
+
+  // Mark activation code as used
+  activationCodes = activationCodes.filter(code => code !== activationCode);
 
   req.session.user = newUser;
   res.json({ message: 'Signup successful! Redirecting to login...' });
 });
 
-// Login
+// Login route
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
   const user = users.find(u => u.email === email && u.password === password);
@@ -110,11 +99,13 @@ app.post('/login', (req, res) => {
   }
 });
 
-// Dashboard API
+// Dashboard route
 app.get('/dashboard', (req, res) => {
   if (!req.session.user) return res.status(401).json({ message: 'Not logged in' });
 
-  const user = req.session.user;
+  // Always get latest info
+  const user = users.find(u => u.email === req.session.user.email);
+
   const referralsCount = users.filter(u => u.referredBy === user.myReferralCode).length;
 
   res.json({
@@ -135,9 +126,9 @@ app.get('/logout', (req, res) => {
   res.sendStatus(200);
 });
 
-// Catch-all: serve index.html for unknown paths
+// Catch-all route
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start server
