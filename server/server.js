@@ -1,137 +1,123 @@
-const express = require('express');
-const path = require('path');
-const session = require('express-session');
-const bodyParser = require('body-parser');
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const bcrypt = require("bcrypt");
+const session = require("express-session");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use(session({
-  secret: 'superSecretKey',
-  resave: false,
-  saveUninitialized: true,
-}));
+// Static files (public frontend)
+app.use(express.static(path.join(__dirname, "../public")));
 
-// --- In-memory data ---
-const users = [
-  {
-    name: 'Admin User',
-    email: 'user@example.com',
-    password: '1234',
-    wallet: 5000,
-    myReferralCode: 'ABC123',
-    referredBy: null,
-    activationCode: 'ACT123'
-  }
-];
+// Sessions
+app.use(
+  session({
+    secret: "superSecretKey",
+    resave: false,
+    saveUninitialized: true,
+  })
+);
 
-// Activation codes that can be used only once
-let activationCodes = ['ACT123', 'ACT234', 'ACT345', 'ACT456', 'ACT567'];
+// File for saving user data
+const usersFile = path.join(__dirname, "users.json");
 
-// --- Routes ---
+// Helper: Load users
+function loadUsers() {
+  if (!fs.existsSync(usersFile)) return [];
+  const data = fs.readFileSync(usersFile);
+  return JSON.parse(data);
+}
 
-// Serve homepage
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Helper: Save users
+function saveUsers(users) {
+  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+}
+
+// ---- ROUTES ----
+
+// Home
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
-// Signup route
-app.post('/signup', (req, res) => {
-  const { name, email, password, activationCode, referralCode } = req.body;
+// Signup
+app.post("/signup", async (req, res) => {
+  const { name, email, password, referralCode } = req.body;
+  let users = loadUsers();
 
-  if (!name || !email || !password || !activationCode) {
-    return res.status(400).json({ message: 'Please fill in all required fields.' });
-  }
+  const existing = users.find((u) => u.email === email);
+  if (existing) return res.status(400).json({ message: "User already exists" });
 
-  // Check activation code validity
-  if (!activationCodes.includes(activationCode)) {
-    return res.status(400).json({ message: 'Invalid or already used activation code.' });
-  }
-
-  if (users.find(u => u.email === email)) {
-    return res.status(400).json({ message: 'Email already exists.' });
-  }
-
-  // Generate new referral code
-  const newReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
+  const hashed = await bcrypt.hash(password, 10);
   const newUser = {
     name,
     email,
-    password,
-    wallet: 0,
-    myReferralCode: newReferralCode,
+    password: hashed,
+    referralCode: Math.random().toString(36).substring(2, 8),
     referredBy: referralCode || null,
-    activationCode
+    wallet: 0,
+    referredUsers: [],
   };
 
-  users.push(newUser);
-
-  // Referral reward logic
+  // Reward referrer once
   if (referralCode) {
-    const referrer = users.find(u => u.myReferralCode === referralCode);
-    if (referrer) {
-      referrer.wallet += 2000; // ₦2000 reward
+    const referrer = users.find((u) => u.referralCode === referralCode);
+    if (referrer && !referrer.referredUsers.includes(email)) {
+      referrer.wallet += 100; // ₦100 bonus
+      referrer.referredUsers.push(email);
     }
   }
 
-  // Mark activation code as used
-  activationCodes = activationCodes.filter(code => code !== activationCode);
+  users.push(newUser);
+  saveUsers(users);
 
-  req.session.user = newUser;
-  res.json({ message: 'Signup successful! Redirecting to login...' });
+  res.json({ message: "Signup successful", referralCode: newUser.referralCode });
 });
 
-// Login route
-app.post('/login', (req, res) => {
+// Login
+app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  const user = users.find(u => u.email === email && u.password === password);
-  if (user) {
-    req.session.user = user;
-    res.json({ message: 'Login successful!' });
-  } else {
-    res.status(401).json({ message: 'Invalid email or password' });
-  }
+  const users = loadUsers();
+  const user = users.find((u) => u.email === email);
+  if (!user) return res.status(400).json({ message: "User not found" });
+
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return res.status(401).json({ message: "Invalid credentials" });
+
+  req.session.user = user.email;
+  res.json({ message: "Login successful" });
 });
 
-// Dashboard route
-app.get('/dashboard', (req, res) => {
-  if (!req.session.user) return res.status(401).json({ message: 'Not logged in' });
+// Dashboard data
+app.get("/dashboard-data", (req, res) => {
+  if (!req.session.user) return res.status(401).json({ message: "Not logged in" });
 
-  // Always get latest info
-  const user = users.find(u => u.email === req.session.user.email);
-
-  const referralsCount = users.filter(u => u.referredBy === user.myReferralCode).length;
+  const users = loadUsers();
+  const user = users.find((u) => u.email === req.session.user);
+  if (!user) return res.status(404).json({ message: "User not found" });
 
   res.json({
-    user: {
-      name: user.name,
-      email: user.email,
-      wallet: user.wallet,
-      myReferralCode: user.myReferralCode,
-      referredBy: user.referredBy || 'N/A',
-      referralsCount
-    }
+    name: user.name,
+    wallet: user.wallet,
+    referralCode: user.referralCode,
+    referredUsers: user.referredUsers.length,
   });
 });
 
 // Logout
-app.get('/logout', (req, res) => {
-  req.session.destroy();
-  res.sendStatus(200);
+app.get("/logout", (req, res) => {
+  req.session.destroy(() => res.redirect("/login.html"));
 });
 
-// Catch-all route
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Handle 404 for unknown pages
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, "../public/index.html"));
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
