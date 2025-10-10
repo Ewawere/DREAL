@@ -43,10 +43,10 @@ app.use(session({
   }
 }));
 
-// Routes
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
-});
+// Remove this route entirely! Static middleware will serve index.html automatically.
+// app.get('/', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'public/index.html'));
+// });
 
 app.get('/dashboard', (req, res) => {
   if (!req.session.userEmail)
@@ -103,6 +103,7 @@ app.post('/signup', async (req, res) => {
     req.session.userEmail = email;
     res.json({ message: 'Signup successful' });
   } catch (err) {
+    console.error('Signup error:', err);
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
@@ -125,6 +126,7 @@ app.post('/login', async (req, res) => {
     req.session.userEmail = email;
     res.json({ message: 'Login successful' });
   } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
