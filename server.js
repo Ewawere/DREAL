@@ -78,9 +78,18 @@ app.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
 
     // Activation code validation
-    const codes = loadActivationCodes();
-    if (!codes.includes(activationCode))
-      return res.status(400).json({ message: 'Invalid activation code.' });
+    const codeObj = codes.find(c => c.code === activationCode);
+if (!codeObj) {
+  return res.status(400).json({ message: 'Invalid activation code.' });
+}
+if (codeObj.used) {
+  return res.status(400).json({ message: 'Activation code already used.' });
+}
+
+// Mark the code as used
+codeObj.used = true;
+fs.writeFileSync(ACTIVATION_CODES_FILE, JSON.stringify(codes, null, 2));
+
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const myReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
