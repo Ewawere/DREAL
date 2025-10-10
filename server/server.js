@@ -5,119 +5,152 @@ const bcrypt = require("bcrypt");
 const session = require("express-session");
 
 const app = express();
+const PORT = process.env.PORT || 10000;
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Static files (public frontend)
 app.use(express.static(path.join(__dirname, "../public")));
 
-// Sessions
 app.use(
   session({
     secret: "superSecretKey",
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
   })
 );
 
-// File for saving user data
+// Load data
 const usersFile = path.join(__dirname, "users.json");
+const codesFile = path.join(__dirname, "activationCodes.json");
 
-// Helper: Load users
-function loadUsers() {
-  if (!fs.existsSync(usersFile)) return [];
-  const data = fs.readFileSync(usersFile);
-  return JSON.parse(data);
+function readJSON(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file));
+  } catch {
+    return [];
+  }
 }
 
-// Helper: Save users
-function saveUsers(users) {
-  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+function writeJSON(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-// ---- ROUTES ----
+// =========================== ROUTES ===========================
 
-// Home
+// Serve pages
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/login.html"));
+});
+
+app.get("/dashboard", (req, res) => {
+  if (!req.session.userId) {
+    return res.redirect("/login");
+  }
+  res.sendFile(path.join(__dirname, "../public/dashboard.html"));
+});
+
+// =========================== AUTH ===========================
+
 // Signup
 app.post("/signup", async (req, res) => {
-  const { name, email, password, referralCode } = req.body;
-  let users = loadUsers();
+  const { name, email, password, referralCode, activationCode } = req.body;
 
-  const existing = users.find((u) => u.email === email);
-  if (existing) return res.status(400).json({ message: "User already exists" });
+  let users = readJSON(usersFile);
+  let codes = readJSON(codesFile);
 
-  const hashed = await bcrypt.hash(password, 10);
+  if (users.find((u) => u.email === email)) {
+    return res.status(400).json({ error: "Email already exists" });
+  }
+
+  // Check activation code validity
+  const codeIndex = codes.findIndex(
+    (c) => c.code === activationCode && !c.used
+  );
+  if (codeIndex === -1) {
+    return res.status(400).json({ error: "Invalid or already used activation code" });
+  }
+
+  // Mark activation code as used
+  codes[codeIndex].used = true;
+  writeJSON(codesFile, codes);
+
+  const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = {
+    id: Date.now(),
     name,
     email,
-    password: hashed,
-    referralCode: Math.random().toString(36).substring(2, 8),
-    referredBy: referralCode || null,
-    wallet: 0,
+    password: hashedPassword,
+    referralCode: Math.random().toString(36).substr(2, 6).toUpperCase(),
     referredUsers: [],
+    wallet: 0,
   };
 
-  // Reward referrer once
+  // Handle referral bonus
   if (referralCode) {
     const referrer = users.find((u) => u.referralCode === referralCode);
-    if (referrer && !referrer.referredUsers.includes(email)) {
-      referrer.wallet += 100; // ₦100 bonus
-      referrer.referredUsers.push(email);
+    if (referrer) {
+      referrer.referredUsers.push(newUser.email);
+      referrer.wallet += 500; // Adjust bonus here if needed
     }
   }
 
   users.push(newUser);
-  saveUsers(users);
+  writeJSON(usersFile, users);
 
-  res.json({ message: "Signup successful", referralCode: newUser.referralCode });
+  res.json({ success: true, message: "Signup successful!" });
 });
 
 // Login
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  const users = loadUsers();
+  let users = readJSON(usersFile);
+
   const user = users.find((u) => u.email === email);
-  if (!user) return res.status(400).json({ message: "User not found" });
+  if (!user) return res.status(400).json({ error: "Invalid email or password" });
 
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(401).json({ message: "Invalid credentials" });
+  const validPass = await bcrypt.compare(password, user.password);
+  if (!validPass)
+    return res.status(400).json({ error: "Invalid email or password" });
 
-  req.session.user = user.email;
-  res.json({ message: "Login successful" });
-});
-
-// Dashboard data
-app.get("/dashboard-data", (req, res) => {
-  if (!req.session.user) return res.status(401).json({ message: "Not logged in" });
-
-  const users = loadUsers();
-  const user = users.find((u) => u.email === req.session.user);
-  if (!user) return res.status(404).json({ message: "User not found" });
-
-  res.json({
-    name: user.name,
-    wallet: user.wallet,
-    referralCode: user.referralCode,
-    referredUsers: user.referredUsers.length,
-  });
+  req.session.userId = user.id;
+  res.json({ success: true });
 });
 
 // Logout
 app.get("/logout", (req, res) => {
-  req.session.destroy(() => res.redirect("/login.html"));
+  req.session.destroy(() => {
+    res.redirect("/login");
+  });
 });
 
-// Handle 404 for unknown pages
-app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, "../public/index.html"));
+// =========================== DASHBOARD DATA ===========================
+
+app.get("/user-data", (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Not logged in" });
+  }
+
+  const users = readJSON(usersFile);
+  const user = users.find((u) => u.id === req.session.userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  res.json({
+    name: user.name,
+    email: user.email,
+    referralCode: user.referralCode,
+    referredUsers: user.referredUsers,
+    wallet: user.wallet,
+  });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// =========================== SERVER ===========================
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
+
