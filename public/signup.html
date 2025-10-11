@@ -47,6 +47,20 @@
     a:hover {
       text-decoration: underline;
     }
+    #debug {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #333;
+      background: #eee;
+      padding: 6px;
+      border-radius: 4px;
+      display: none;
+      text-align: left;
+      max-width: 450px;
+      margin-left: auto;
+      margin-right: auto;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
@@ -60,6 +74,7 @@
     <button type="submit">Sign Up</button>
   </form>
   <p id="message"></p>
+  <div id="debug"></div>
   <div class="links">
     <p>Already have an account? <a href="/login.html">Login</a></p>
     <p><a href="/index.html">← Back to homepage</a></p>
@@ -81,8 +96,18 @@
       const activationCode = document.getElementById('activationCode').value.trim();
       const referralCode = document.getElementById('referralCode').value.trim();
 
-      document.getElementById('message').innerText = "";
+      // Debug info: show what's being sent
+      const debugDiv = document.getElementById('debug');
+      debugDiv.style.display = "block";
+      debugDiv.innerText = 
+        "Activation Code (raw): [" + document.getElementById('activationCode').value + "]\n" +
+        "Activation Code (trimmed): [" + activationCode + "]\n" +
+        "Name: [" + name + "]\n" +
+        "Email: [" + email + "]\n" +
+        "Password length: " + password.length + "\n" +
+        "ReferralCode: [" + referralCode + "]";
 
+      document.getElementById('message').innerText = "";
       try {
         const res = await fetch('/signup', {
           method: 'POST',
