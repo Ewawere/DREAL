@@ -1,4 +1,7 @@
 [
   { "code": "ABC123", "used": false },
-  { "code": "XYZ789", "used": false }
+  { "code": "XYZ789", "used": false },
+  { "code": "HELLO1", "used": false },
+  { "code": "JOINME", "used": false },
+  { "code": "NEW2025", "used": false }
 ]
