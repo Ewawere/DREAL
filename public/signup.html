@@ -1,52 +1,111 @@
-app.post('/signup', async (req, res) => {
-  try {
-    const { name, email, password, referralCode, activationCode } = req.body;
-    // Basic validation
-    if (!name || !email || !password || !activationCode)
-      return res.status(400).json({ message: 'Name, email, password, and activation code are required.' });
-    if (!validator.isEmail(email))
-      return res.status(400).json({ message: 'Invalid email format.' });
-    if (password.length < 6)
-      return res.status(400).json({ message: 'Password must be at least 6 characters.' });
-
-    const users = loadUsers();
-    if (users.find(u => u.email === email))
-      return res.status(400).json({ message: 'User already exists' });
-
-    // Activation code validation (this is the fixed part)
-    const codes = loadActivationCodes();
-    console.log('Loaded codes:', codes); // Debugging line, optional
-    const codeObj = codes.find(c => c.code === activationCode && !c.used);
-    console.log('Submitted code:', activationCode, 'Matched codeObj:', codeObj); // Debugging line, optional
-    if (!codeObj)
-      return res.status(400).json({ message: 'Invalid or already used activation code.' });
-
-    // Mark the code as used
-    codeObj.used = true;
-    fs.writeFileSync(ACTIVATION_CODES_FILE, JSON.stringify(codes, null, 2));
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const myReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    // Referral logic
-    let referredBy = '';
-    if (referralCode) {
-      const refUser = users.find(u => u.myReferralCode === referralCode);
-      if (refUser) {
-        referredBy = referralCode;
-        refUser.wallet = (refUser.wallet || 0) + 1000;
-        saveUsers(users);
-      }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sign Up</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background-color: #f4f4f4;
+      text-align: center;
+    }
+    form {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 450px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #28a745;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    #message {
+      margin-top: 15px;
+      color: red;
+    }
+    .links {
+      margin-top: 20px;
+    }
+    a {
+      text-decoration: none;
+      color: #007bff;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h2>Create Your Account</h2>
+  <form id="signupForm" autocomplete="off">
+    <input type="text" id="name" placeholder="Full Name" required /><br />
+    <input type="email" id="email" placeholder="Email" required /><br />
+    <input type="password" id="password" placeholder="Password (min 6 chars)" required minlength="6" /><br />
+    <input type="text" id="activationCode" placeholder="Activation Code" required /><br />
+    <input type="text" id="referralCode" placeholder="Referral Code (optional)" /><br />
+    <button type="submit">Sign Up</button>
+  </form>
+  <p id="message"></p>
+  <div class="links">
+    <p>Already have an account? <a href="/login.html">Login</a></p>
+    <p><a href="/index.html">← Back to homepage</a></p>
+  </div>
+  <script>
+    // Autofill referral code from ?ref= query in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    if (ref) {
+      document.getElementById('referralCode').value = ref;
     }
 
-    const newUser = { name, email, password: hashedPassword, myReferralCode, referredBy, wallet: 0 };
-    users.push(newUser);
-    saveUsers(users);
+    document.getElementById('signupForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
 
-    req.session.userEmail = email;
-    res.json({ message: 'Signup successful' });
-  } catch (err) {
-    console.error('Signup error:', err);
-    res.status(500).json({ message: 'Internal server error.' });
-  }
-});
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const activationCode = document.getElementById('activationCode').value.trim();
+      const referralCode = document.getElementById('referralCode').value.trim();
+
+      document.getElementById('message').innerText = "";
+
+      try {
+        const res = await fetch('/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, activationCode, referralCode })
+        });
+
+        const data = await res.json();
+        document.getElementById('message').innerText = data.message;
+
+        if (res.ok) {
+          document.getElementById('message').style.color = "green";
+          setTimeout(() => {
+            window.location.href = "/login.html";
+          }, 1800);
+        } else {
+          document.getElementById('message').style.color = "red";
+        }
+      } catch (err) {
+        document.getElementById('message').innerText = "Server error. Please try again.";
+        document.getElementById('message').style.color = "red";
+      }
+    });
+  </script>
+</body>
+</html>
