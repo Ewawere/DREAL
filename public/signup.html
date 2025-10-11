@@ -37,6 +37,19 @@
       margin-top: 15px;
       color: red;
     }
+    #debug {
+      color: #555;
+      font-size: 12px;
+      margin-top: 10px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      padding: 6px;
+      max-width: 450px;
+      margin-left: auto;
+      margin-right: auto;
+      word-break: break-all;
+      display: none;
+    }
     .links {
       margin-top: 20px;
     }
@@ -46,20 +59,6 @@
     }
     a:hover {
       text-decoration: underline;
-    }
-    #debug {
-      margin-top: 10px;
-      font-size: 13px;
-      color: #333;
-      background: #eee;
-      padding: 6px;
-      border-radius: 4px;
-      display: none;
-      text-align: left;
-      max-width: 450px;
-      margin-left: auto;
-      margin-right: auto;
-      word-break: break-all;
     }
   </style>
 </head>
@@ -96,18 +95,11 @@
       const activationCode = document.getElementById('activationCode').value.trim();
       const referralCode = document.getElementById('referralCode').value.trim();
 
-      // Debug info: show what's being sent
+      document.getElementById('message').innerText = "";
       const debugDiv = document.getElementById('debug');
       debugDiv.style.display = "block";
-      debugDiv.innerText = 
-        "Activation Code (raw): [" + document.getElementById('activationCode').value + "]\n" +
-        "Activation Code (trimmed): [" + activationCode + "]\n" +
-        "Name: [" + name + "]\n" +
-        "Email: [" + email + "]\n" +
-        "Password length: " + password.length + "\n" +
-        "ReferralCode: [" + referralCode + "]";
+      debugDiv.innerText = "Sending activation code: [" + activationCode + "]";
 
-      document.getElementById('message').innerText = "";
       try {
         const res = await fetch('/signup', {
           method: 'POST',
@@ -116,7 +108,8 @@
         });
 
         const data = await res.json();
-        document.getElementById('message').innerText = data.message;
+        document.getElementById('message').innerText = data.message || "Unknown response from server.";
+        debugDiv.innerText = "Server returned: " + JSON.stringify(data);
 
         if (res.ok) {
           document.getElementById('message').style.color = "green";
@@ -129,6 +122,7 @@
       } catch (err) {
         document.getElementById('message').innerText = "Server error. Please try again.";
         document.getElementById('message').style.color = "red";
+        debugDiv.innerText = "Could not reach server: " + err;
       }
     });
   </script>
