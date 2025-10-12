@@ -77,9 +77,13 @@ app.post('/signup', async (req, res) => {
     if (users.find(u => u.email === email))
       return res.status(400).json({ message: 'User already exists' });
 
-    // Activation code validation (fixed)
+    // Activation code validation (DEBUG ADDED HERE)
     const codes = loadActivationCodes();
+    console.log('Loaded codes:', JSON.stringify(codes));
+    console.log('Submitted code:', activationCode, '| Type:', typeof activationCode, '| Length:', activationCode.length);
     const codeObj = codes.find(c => c.code === activationCode && !c.used);
+    console.log('Matched codeObj:', codeObj);
+
     if (!codeObj)
       return res.status(400).json({ message: 'Invalid or already used activation code.' });
 
